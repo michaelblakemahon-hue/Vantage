@@ -1,14 +1,53 @@
-{
-    "version": 2,
-    "functions": {
-          "api/auth.js":    { "maxDuration": 30 },
-          "api/clients.js": { "maxDuration": 30 },
-          "api/extract.js": { "maxDuration": 60 }
-    },
-    "routes": [
-          { "src": "/api/auth",    "dest": "/api/auth.js" },
-          { "src": "/api/clients", "dest": "/api/clients.js" },
-          { "src": "/api/extract", "dest": "/api/extract.js" },
-          { "src": "/(.*)",        "dest": "/public/$1" }
-    ]
-}
+# Vantage — Agent Platform
+
+AI-powered insurance intelligence platform for commercial lines agents.
+
+## Setup (one-time)
+
+### 1. Supabase Database
+1. Go to supabase.com → New project → name it `vantage`
+2. Settings → API → copy **Project URL** and **service_role** key
+3. SQL Editor → New query → paste contents of `SUPABASE_SETUP.sql` → Run
+
+### 2. Anthropic API Key
+1. console.anthropic.com → API Keys → Create Key → copy it
+
+### 3. Deploy to Vercel
+```bash
+cd vantage-vercel
+npx vercel
+```
+When prompted, accept all defaults.
+
+### 4. Add Environment Variables
+In Vercel dashboard → your project → Settings → Environment Variables:
+
+| Name | Value |
+|------|-------|
+| `ANTHROPIC_API_KEY` | `sk-ant-...` |
+| `SUPABASE_URL` | `https://xxxx.supabase.co` |
+| `SUPABASE_SERVICE_KEY` | `eyJ...` (service_role key) |
+
+### 5. Redeploy
+```bash
+npx vercel --prod
+```
+
+## Updating the site
+Every update comes as a new zip from Claude. Unzip, then:
+```bash
+cd vantage-vercel
+npx vercel --prod
+```
+
+## Architecture
+- **Frontend**: Single HTML file with all CSS + JS
+- **API**: Three Vercel serverless functions (auth, clients, extract)
+- **Database**: Supabase (auth + postgres)
+- **AI**: Anthropic Claude API for document extraction
+
+## Database Tables
+- `agents` — one row per registered agent
+- `clients` — each agent's book of business  
+- `reports` — full stewardship reports, saved per client
+- `benchmarks` — anonymized data from every report (your data moat)

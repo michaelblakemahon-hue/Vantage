@@ -1,0 +1,98 @@
+-- ============================================
+-- Vantage Supabase Setup
+-- Run this entire file in Supabase SQL Editor
+-- Dashboard → SQL Editor → New query → Paste → Run
+-- ============================================
+
+-- 1. AGENTS TABLE (one row per agent account)
+create table if not exists agents (
+  id uuid primary key references auth.users(id) on delete cascade,
+  email text not null,
+  name text not null,
+  agency text default '',
+  plan text default 'trial',
+  reports_used integer default 0,
+  created_at timestamptz default now()
+);
+
+-- 2. CLIENTS TABLE (each agent's book of business)
+create table if not exists clients (
+  id uuid primary key default gen_random_uuid(),
+  agent_id uuid not null references agents(id) on delete cascade,
+  name text not null,
+  industry text default '',
+  state text default '',
+  contact_name text default '',
+  contact_email text default '',
+  contact_phone text default '',
+  notes text default '',
+  loss_ratio numeric default null,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+-- 3. REPORTS TABLE (each generated stewardship report)
+create table if not exists reports (
+  id uuid primary key default gen_random_uuid(),
+  client_id uuid not null references clients(id) on delete cascade,
+  agent_id uuid not null references agents(id) on delete cascade,
+  document_name text default 'Loss Run',
+  insured text default '',
+  total_claims integer default 0,
+  total_premium numeric default 0,
+  loss_ratio numeric default 0,
+  report_data text,  -- full JSON blob
+  created_at timestamptz default now()
+);
+
+-- 4. BENCHMARKS TABLE (anonymized data - your moat)
+create table if not exists benchmarks (
+  id uuid primary key default gen_random_uuid(),
+  industry text not null,
+  state text not null,
+  policy_line text not null,
+  loss_ratio numeric not null,
+  claim_count integer default 0,
+  total_incurred numeric default 0,
+  avg_claim_cost numeric default 0,
+  years_of_data integer default 1,
+  created_at timestamptz default now()
+);
+
+-- ============================================
+-- ROW LEVEL SECURITY (agents only see their own data)
+-- ============================================
+
+alter table agents enable row level security;
+alter table clients enable row level security;
+alter table reports enable row level security;
+alter table benchmarks enable row level security;
+
+-- Agents: read/update own row only
+create policy "agents_own" on agents
+  for all using (auth.uid() = id);
+
+-- Clients: agent owns their clients
+create policy "clients_own" on clients
+  for all using (auth.uid() = agent_id);
+
+-- Reports: agent owns their reports
+create policy "reports_own" on reports
+  for all using (auth.uid() = agent_id);
+
+-- Benchmarks: readable by all authenticated users, writable by service role only
+create policy "benchmarks_read" on benchmarks
+  for select using (auth.uid() is not null);
+
+-- ============================================
+-- INDEXES (for query performance)
+-- ============================================
+
+create index if not exists idx_clients_agent on clients(agent_id);
+create index if not exists idx_reports_client on reports(client_id);
+create index if not exists idx_reports_agent on reports(agent_id);
+create index if not exists idx_benchmarks_lookup on benchmarks(industry, state, policy_line);
+
+-- ============================================
+-- Done! Your database is ready.
+-- ============================================
